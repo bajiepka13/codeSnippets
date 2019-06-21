@@ -1,0 +1,72 @@
+@RunWith(SpringRunner.class)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public class ObjectsFromApiResponseTest {
+
+    @Lazy
+    @Autowired
+    private LanguageInterceptor languageInterceptor;
+
+    @LocalServerPort
+    private int port;
+
+    @Autowired
+    private TestRestTemplate restTemplate;
+
+    private final String GET_URI = "http://localhost:%s/methods";
+    
+    enum LocaleRange {
+
+        RUSSIAN { public List<Locale.LanguageRange> get() { return setRange(RUS, ENG, CHN); }},
+        ENGLISH { public List<Locale.LanguageRange> get() { return setRange(ENG, RUS, CHN); }},
+        CHINEESE { public List<Locale.LanguageRange> get() { return setRange(CHN, RUS, ENG); }};
+
+        final String RUS = "ru-RU";
+        final String ENG = "en-US";
+        final String CHN = "zh-CH";
+
+        final double W_9 = 0.9;
+        final double W_8 = 0.8;
+        final double W_7 = 0.7;
+
+        /**
+         * @author Valerii Chalenko
+         * @return ArrayList<LanguageRange> that is populated by the required language locale, set up
+         * by enum value
+         */
+        public abstract List<Locale.LanguageRange> get();
+
+        protected List<Locale.LanguageRange> setRange(String high, String mid, String low){
+            return Arrays.asList(
+                    new Locale.LanguageRange(high, W_9),
+                    new Locale.LanguageRange(mid, W_8),
+                    new Locale.LanguageRange(low, W_7)); }
+    }
+
+    @Test
+    public void findAllObjectsFromApiResponse() {
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+        headers.setAcceptLanguage(LocaleRange.RUSSIAN.get());
+
+        HttpEntity<String> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<Object> responseEntity =
+                restTemplate.exchange(String.format(GET_URI, port),
+                        HttpMethod.GET,
+                        entity,
+                        Object.class);
+
+        LinkedHashMap<String, String> answerBody = (LinkedHashMap) responseEntity.getBody();
+
+        //  Проверяем, что мы получили нормальный ответ
+        Boolean correctAnswer = responseEntity.getStatusCode() == HttpStatus.OK;
+        System.out.println("Получен правильный HTTP ответ");
+        assertThat(correctAnswer);
+
+        //  Проверяем, содержит ли ответ группы реквизитов (ошибка с NULL в ответе)
+        System.out.println("Получен список объектов");
+        assertThat(answerBody.containsKey("objects"));
+
+    }
+}
